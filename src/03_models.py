@@ -29,6 +29,24 @@ def main() -> None:
     write_table("sig_preferred", sig_table(pref), floatfmt=".4f")
     write_table("sig_M3", sig_table(ladder["M3"]), floatfmt=".4f")
 
+    # Out-of-sample check: fit each model on 80% of employees and measure the mean squared
+    # error (MSE) of log salary on the 20% held out; 10-fold cross-validation confirms it.
+    rng = np.random.default_rng(2026)
+    order = rng.permutation(len(sample))
+    test, train = sample.iloc[order[: len(sample) // 5]], sample.iloc[order[len(sample) // 5:]]
+    folds = np.array_split(rng.permutation(len(sample)), 10)
+    validation = []
+    for k, f in FORMULAS.items():
+        m = smf.ols(f, train).fit()
+        cv = [np.mean((sample.iloc[fold]["lsal"]
+                       - smf.ols(f, sample.drop(sample.index[fold])).fit().predict(sample.iloc[fold])) ** 2)
+              for fold in folds]
+        validation.append({"Model": k, "Training MSE": np.mean(m.resid ** 2),
+                           "Held-out MSE": np.mean((test["lsal"] - m.predict(test)) ** 2),
+                           "10-fold CV MSE": np.mean(cv)})
+    validation = pd.DataFrame(validation)
+    write_table("validation", validation, floatfmt=".4f")
+
     # Nested comparisons: classical F-test on the same sample (OLS fits) plus fit criteria.
     ols = {k: smf.ols(f, sample).fit() for k, f in FORMULAS.items()}
     nested = []
@@ -178,6 +196,8 @@ def main() -> None:
         "fxt_coef": b["female:ten"], "fxt_p": pref.pvalues["female:ten"],
         "mxe_coef": b["married:exper"], "mxe_p": pref.pvalues["married:exper"],
         "r2_M4": ladder["M4"].rsquared_adj, "r2_M6": ladder["M6"].rsquared_adj,
+        **{f"mse_test_{r.Model}": r["Held-out MSE"] for _, r in validation.iterrows()},
+        **{f"mse_cv_{r.Model}": r["10-fold CV MSE"] for _, r in validation.iterrows()},
         "edu_M3_pct": 100 * ladder["M3"].params["edu"], "ten_M3_pct": 100 * ladder["M3"].params["ten"],
         "exper_M3_pct": 100 * ladder["M3"].params["exper"], "exper_M3_p": ladder["M3"].pvalues["exper"],
         "tp_exper": tp_exper, "tp_exper_married": -(b["exper"] + b["married:exper"]) / (2 * b["I(exper ** 2)"]),
