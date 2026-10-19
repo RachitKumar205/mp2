@@ -1,0 +1,21 @@
+% Layout matching the MP1 report: Computer Modern, booktabs tables, bold caption labels.
+% Uses only packages in a basic TeX Live install.
+\usepackage{float}
+\floatplacement{figure}{htbp}
+\usepackage[font=small,labelfont=bf,skip=6pt]{caption}
+\usepackage{etoolbox}
+\AtBeginEnvironment{longtable}{\small}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.6em}
+\usepackage{amsmath}
+\usepackage{subcaption}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{longtable}
+% Let floats share pages with text instead of sitting on half-empty float pages.
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.8}
+\renewcommand{\textfraction}{0.1}
+\renewcommand{\floatpagefraction}{0.8}
+\setcounter{topnumber}{3}
+\setcounter{totalnumber}{5}
