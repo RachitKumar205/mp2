@@ -2,8 +2,8 @@
 
 Covers multicollinearity (VIF, condition number), heteroskedasticity (Breusch-Pagan,
 White), functional-form specification (Ramsey RESET), residual normality
-(Jarque-Bera), independence (Durbin-Watson), influential observations (Cook's
-distance) and robustness of the conclusions to alternative samples and estimators.
+(Jarque-Bera), independence (Durbin-Watson, Breusch-Godfrey), influential observations
+(Cook's distance) and robustness of the conclusions to alternative samples and estimators.
 """
 
 import matplotlib
@@ -15,7 +15,8 @@ import pandas as pd
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from patsy import dmatrices
-from statsmodels.stats.diagnostic import het_breuschpagan, het_white, linear_reset
+from scipy import stats
+from statsmodels.stats.diagnostic import acorr_breusch_godfrey, het_breuschpagan, het_white, linear_reset
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.stats.stattools import durbin_watson, jarque_bera
 
@@ -32,22 +33,44 @@ def vif_table(formula, data) -> pd.Series:
                       if c != "Intercept"})
 
 
+def white_full(m) -> tuple[float, float, int]:
+    """Full White test: regress e² on the regressors, their squares and cross-products.
+
+    statsmodels' het_white counts every generated column, but here many are duplicates
+    (a 0/1 variable squared is itself) or identically zero (products of categories that
+    cannot occur together). Those columns are dropped and the degrees of freedom are the
+    rank of what remains, so the chi-squared test is correctly sized.
+    """
+    X = m.model.exog[:, 1:]  # drop the constant
+    k = X.shape[1]
+    cols = [X[:, i] for i in range(k)] + [X[:, i] * X[:, j] for i in range(k) for j in range(i, k)]
+    Z = np.unique(np.round(np.column_stack(cols), 10), axis=1)
+    Z = Z[:, Z.std(axis=0) > 0]
+    aux = sm.OLS(m.resid ** 2, sm.add_constant(Z)).fit()
+    df = np.linalg.matrix_rank(Z)
+    lm = len(m.resid) * aux.rsquared
+    return float(lm), float(stats.chi2.sf(lm, df)), int(df)
+
+
 def diagnostics(name, m) -> dict:
     exog = m.model.exog
     bp = het_breuschpagan(m.resid, exog)
-    # Special form of the White test (Wooldridge): regress e² on ŷ and ŷ². The full White
-    # test is not identified here because squares of the many dummies duplicate them.
+    wf, wfp, wdf = white_full(m)
+    # Special form of the White test (Wooldridge): regress e² on ŷ and ŷ².
     wh = het_white(m.resid, sm.add_constant(m.fittedvalues))
+    bg = acorr_breusch_godfrey(m, nlags=1, result_object=False)
     r2 = linear_reset(m, power=2, use_f=True)
     r23 = linear_reset(m, power=3, use_f=True)
     jb, jbp, sk, ku = jarque_bera(m.resid)
     return {"Model": name,
             "Breusch-Pagan LM": bp[0], "BP p": bp[1],
+            "White (full) LM": wf, "White (full) df": wdf, "White (full) p": wfp,
             "White (special) LM": wh[0], "White p": wh[1],
             "RESET F (ŷ²)": float(r2.fvalue), "RESET p (ŷ²)": float(r2.pvalue),
             "RESET F (ŷ², ŷ³)": float(r23.fvalue), "RESET p (ŷ², ŷ³)": float(r23.pvalue),
             "Jarque-Bera": jb, "JB p": jbp, "Skew": sk, "Kurtosis": ku,
             "Durbin-Watson": durbin_watson(m.resid),
+            "Breusch-Godfrey LM (lag 1)": bg[0], "BG p": bg[1],
             "Condition no.": np.linalg.cond(m.model.exog)}
 
 
@@ -107,12 +130,12 @@ def main() -> None:
                     sample.assign(resid=ols_pref.resid)).fit()
     weights = 1 / np.exp(w_aux.fittedvalues)
     robust = {
-        f"{PREFERRED} baseline": rob_pref,
-        "M6 (fewer interactions)": fit(FORMULAS["M6"], sample),
-        "Original values (no imputation)": fit(f_pref, original),
-        "Drop imputed rows": fit(f_pref, sample[~imputed_rows]),
-        "Drop influential (Cook's D > 4/n)": fit(f_pref, sample[~influential]),
-        "FGLS (WLS on estimated variance)": smf.wls(f_pref, sample, weights=weights).fit(cov_type="HC3"),
+        PREFERRED: rob_pref,
+        "M6": fit(FORMULAS["M6"], sample),
+        "Original values": fit(f_pref, original),
+        "Drop imputed": fit(f_pref, sample[~imputed_rows]),
+        "Drop influential": fit(f_pref, sample[~influential]),
+        "WLS": smf.wls(f_pref, sample, weights=weights).fit(cov_type="HC3"),
     }
     tab = side_by_side(robust)
     keep = [label(t) for t in ["edu", "I(edu ** 2)", "exper", "I(exper ** 2)", "ten", "I(ten ** 2)", "female",
@@ -139,11 +162,16 @@ def main() -> None:
     lw = sm.nonparametric.lowess(sl, fitted)
     ax[1, 0].plot(lw[:, 0], lw[:, 1], color=ORANGE)
     ax[1, 0].set(title="Scale–location", xlabel="Fitted log(salary)", ylabel="√|studentized residual|")
-    ax[1, 1].scatter(infl.hat_matrix_diag, stud, s=8, alpha=.5, color=BLUE)
-    big = np.where(influential)[0]
-    ax[1, 1].scatter(infl.hat_matrix_diag[big], stud[big], s=14, color=ORANGE, label=f"Cook's D > 4/n ({len(big)})")
-    ax[1, 1].set(title="Leverage vs studentized residuals", xlabel="Leverage", ylabel="Studentized residual")
-    ax[1, 1].legend()
+    # Cook's distance bar plot with the 4/n threshold (the course's ols_plot_cooksd_bar).
+    ids = sample["id"].astype(int).to_numpy()
+    ax[1, 1].vlines(ids, 0, cooks, colors=np.where(influential, ORANGE, BLUE), lw=1.6)
+    ax[1, 1].axhline(cut, color=ORANGE, lw=1)
+    ax[1, 1].text(0.98, 0.95, f"Threshold 4/n = {cut:.4f}", transform=ax[1, 1].transAxes,
+                  ha="right", va="top", color=ORANGE, fontsize=9)
+    for i in np.argsort(cooks)[-3:]:
+        ax[1, 1].annotate(str(ids[i]), (ids[i], cooks[i]), fontsize=8, ha="center", va="bottom")
+    ax[1, 1].set(title=f"Cook's distance ({int(influential.sum())} above threshold)",
+                 xlabel="Employee id", ylabel="Cook's distance")
     fig.tight_layout()
     fig.savefig(FIG_DIR / "fig6_residual_diagnostics.png", dpi=200)
     plt.close(fig)
@@ -197,7 +225,10 @@ def main() -> None:
         "reset_log_p2": pr["RESET p (ŷ²)"], "reset_level_p": lvl["RESET p (ŷ², ŷ³)"],
         "jb_log": pr["Jarque-Bera"], "jb_log_p": pr["JB p"], "skew_resid": pr["Skew"], "kurt_resid": pr["Kurtosis"],
         "jb_level": lvl["Jarque-Bera"], "skew_resid_level": lvl["Skew"],
-        "dw": pr["Durbin-Watson"], "cond_raw": pr["Condition no."], "cond_centred": np.linalg.cond(ols_c.model.exog),
+        "dw": pr["Durbin-Watson"], "bg": pr["Breusch-Godfrey LM (lag 1)"], "bg_p": pr["BG p"],
+        "white_full_log": pr["White (full) LM"], "white_full_log_p": pr["White (full) p"],
+        "white_full_log_df": pr["White (full) df"], "white_full_level_p": lvl["White (full) p"],
+        "white_full_m3_p": m3["White (full) p"], "cond_raw": pr["Condition no."], "cond_centred": np.linalg.cond(ols_c.model.exog),
         "n_influential": int(influential.sum()), "cooks_cut": cut, "cooks_max": float(cooks.max()),
         "se_ratio_max": se["SE ratio (robust/classical)"].max(), "se_ratio_min": se["SE ratio (robust/classical)"].min(),
         "reset_m6_p": float(linear_reset(smf.ols(FORMULAS["M6"], sample).fit(), power=3, use_f=True).pvalue),
