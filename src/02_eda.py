@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from config import CLEAN_CSV, FIG_DIR, IT_GROUP, label, save_values, write_table
+from config import CLEAN_CSV, DUMMIES, FIG_DIR, IT_GROUP, label, save_values, write_table
 
 sns.set_theme(style="whitegrid", context="paper", font_scale=1.15)
 BLUE, ORANGE = "#2a6f97", "#d1495b"
@@ -28,15 +28,30 @@ def save(fig, name):
 def main() -> None:
     df = pd.read_csv(CLEAN_CSV)
 
-    # Descriptive statistics.
-    cols = ["sal", "lsal", "edu", "exper", "ten", "dep", "momed", "daded", "sib",
-            "female", "married", "nonprev", "metro", "wrkhm"]
-    desc = df[cols].describe().T[["count", "mean", "std", "min", "50%", "max"]]
-    desc.index = [label(c) if c not in ("sal", "lsal") else {"sal": "Hourly salary", "lsal": "log(salary)"}[c]
-                  for c in desc.index]
-    desc["count"] = desc["count"].astype(int)
-    write_table("descriptives", desc.rename(columns={"50%": "median"}).rename_axis("Variable"),
-                floatfmt=("", ".0f", ".2f", ".2f", ".2f", ".2f", ".2f"), index=True)
+    # Descriptive statistics, with every statistic the course requires for a formal report.
+    names = {"sal": "Hourly salary", "lsal": "log(salary)"}
+    cols = ["sal", "lsal", "edu", "exper", "ten", "dep", "momed", "daded", "sib", *DUMMIES]
+    rows = []
+    for c in cols:
+        x = df[c].dropna()
+        rows.append({"Variable": names.get(c, label(c)), "N": len(x), "Mean": x.mean(), "Median": x.median(),
+                     "Mode": x.mode().iloc[0], "Variance": x.var(), "SD": x.std(), "Min": x.min(),
+                     "Max": x.max(), "Range": x.max() - x.min(), "Skewness": x.skew(),
+                     "Kurtosis": x.kurt(), "Q1": x.quantile(.25), "Q3": x.quantile(.75)})
+    write_table("descriptives", pd.DataFrame(rows), floatfmt=".2f")
+
+    # Correlations of the independent variables (lower triangle for the report; full matrix as CSV).
+    ivs = ["edu", "exper", "ten", "female", "nonprev", "married", "dep", "metro", "wrkhm",
+           "itrd", "momed", "daded", "sib"]
+    corr_iv = df[ivs].corr()
+    tri = corr_iv.where(np.tril(np.ones(corr_iv.shape, dtype=bool), k=-1)).iloc[1:, :-1]
+    tri.index = [f"{i + 2}. {label(v).split(' (')[0]}" for i, v in enumerate(ivs[1:])]
+    tri.columns = [str(i + 1) for i in range(len(ivs) - 1)]
+    write_table("iv_correlations", tri.map(lambda v: "" if pd.isna(v) else f"{v:.2f}".replace("-0.00", "0.00")), index=True,
+                numparse=False)
+    all_ivs = ["edu", "exper", "ten", "female", "nonprev", *[c for c in DUMMIES if c not in ("female", "nonprev")],
+               "dep", "momed", "daded", "sib"]
+    df[all_ivs].corr().round(3).to_csv(FIG_DIR.parent / "tables" / "iv_correlations_full.csv")
 
     # Fig 1: salary is right-skewed; log(salary) is close to symmetric.
     fig, ax = plt.subplots(1, 2, figsize=(10, 3.8))
