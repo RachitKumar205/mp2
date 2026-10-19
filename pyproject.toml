@@ -1,0 +1,15 @@
+[project]
+name = "mp2"
+version = "0.1.0"
+description = "MP2: salary evaluation for HCL Technologies"
+requires-python = ">=3.14"
+dependencies = [
+    "matplotlib>=3.11.2",
+    "numpy>=2.5.4",
+    "openpyxl>=3.1.5",
+    "pandas>=3.0.6",
+    "scipy>=1.18.1",
+    "seaborn>=0.13.2",
+    "statsmodels>=0.15.0",
+    "tabulate>=0.10.0",
+]
