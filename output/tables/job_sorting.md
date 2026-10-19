@@ -1,0 +1,8 @@
+| Outcome (1 if in ...)   | Female     | Education   | Salary effect of group in M7 (%)   |
+|:------------------------|:-----------|:------------|:-----------------------------------|
+| IT architecture         | -0.0840**  | -0.0224***  | -26.8                              |
+| AI applications         | 0.0626**   | 0.0018      | -26.8                              |
+| R&D division            | -0.1026*** | 0.1023***   | 22.2                               |
+| IT programming          | -0.0449    | 0.0010      | -9.1                               |
+| Client-only work        | 0.2041***  | 0.0440***   | -9.6                               |
+| Tech support division   | 0.2633***  | -0.0005     | 7.2                                |

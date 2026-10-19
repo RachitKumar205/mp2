@@ -1,0 +1,32 @@
+variable,id,raw value,rule
+daded,88,435.0,"R3 outside [0, 20]"
+edu,53,122,"R3 outside [0, 20]"
+edu,103,1001,"R3 outside [0, 20]"
+edu,104,SS0,R1 non-numeric entry
+edu,481,120,"R3 outside [0, 20]"
+itprog,232,44,"R2 dummy not in {0,1}"
+itqual,278,s,R1 non-numeric entry
+itreq,219,111.0,"R2 dummy not in {0,1}"
+metro,32,b,R1 non-numeric entry
+momed,226,111,"R3 outside [0, 20]"
+momed,274,ab,R1 non-numeric entry
+norcen,174,100.0,"R2 dummy not in {0,1}"
+sal,44,1111,R5 salary above log-scale fence (25.00)
+sal,103,435.67,R5 salary above log-scale fence (25.00)
+sal,222,acb,R1 non-numeric entry
+sal,291,55.78,R5 salary above log-scale fence (25.00)
+sal,360,333.334,R5 salary above log-scale fence (25.00)
+sal,410,55.67,R5 salary above log-scale fence (25.00)
+sal,443,60,R5 salary above log-scale fence (25.00)
+sal,498,46.67,R5 salary above log-scale fence (25.00)
+sal,503,-2.45,R4 non-positive salary
+sib,33,33.0,"R3 outside [0, 15]"
+sib,127,101.0,"R3 outside [0, 15]"
+sib,247,333.0,"R3 outside [0, 15]"
+sib,382,222.0,"R3 outside [0, 15]"
+south,247,aaa,R1 non-numeric entry
+south,250,231,"R2 dummy not in {0,1}"
+south,258,1111,"R2 dummy not in {0,1}"
+west,120,a,R1 non-numeric entry
+west,419,a,R1 non-numeric entry
+west,519,101,"R2 dummy not in {0,1}"

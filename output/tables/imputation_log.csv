@@ -1,0 +1,25 @@
+variable,id,original,imputed,rule
+exper,32,2.0,5.0,R6 experience raised to tenure
+exper,74,20.0,34.0,R6 experience raised to tenure
+exper,166,2.0,6.0,R6 experience raised to tenure
+exper,174,1.0,4.0,R6 experience raised to tenure
+exper,202,1.0,2.0,R6 experience raised to tenure
+exper,211,1.0,2.0,R6 experience raised to tenure
+exper,216,1.0,2.0,R6 experience raised to tenure
+exper,218,1.0,2.0,R6 experience raised to tenure
+exper,276,1.0,3.0,R6 experience raised to tenure
+exper,334,8.0,10.0,R6 experience raised to tenure
+exper,342,1.0,2.0,R6 experience raised to tenure
+exper,360,6.0,7.0,R6 experience raised to tenure
+exper,381,1.0,4.0,R6 experience raised to tenure
+exper,466,3.0,9.0,R6 experience raised to tenure
+exper,478,11.0,12.0,R6 experience raised to tenure
+exper,524,13.0,18.0,R6 experience raised to tenure
+edu,38,4.0,12.0,"R7 median education, experience band (30, 40]"
+edu,139,2.0,12.0,"R7 median education, experience band (30, 40]"
+edu,306,4.0,12.0,"R7 median education, experience band (40, 60]"
+edu,379,0.0,12.0,"R7 median education, experience band (20, 30]"
+edu,465,3.0,12.0,"R7 median education, experience band (40, 60]"
+edu,470,4.0,12.0,"R7 median education, experience band (30, 40]"
+edu,503,0.0,12.0,"R7 median education, experience band (40, 60]"
+edu,504,5.0,12.0,"R7 median education, experience band (30, 40]"

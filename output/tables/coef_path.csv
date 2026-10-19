@@ -1,0 +1,6 @@
+Specification,Education,Experience,Tenure,Female,Adj. R²
+Female only,,,,-0.4127***,0.147
+Human capital only (M1),0.1006***,0.0029*,0.0223***,,0.307
+Study IVs (M2),0.0940***,0.0033*,0.0172***,-0.2996***,0.378
++ family & location,0.0782***,0.0020,0.0153***,-0.2741***,0.432
++ IT work group & division (M3),0.0577***,0.0011,0.0130***,-0.2623***,0.501
