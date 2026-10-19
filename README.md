@@ -81,6 +81,13 @@ the project root.
 | 3 | `src/03_models.py` | model ladder, significance tables, quadratic, interaction and subsidiary tables |
 | 4 | `src/04_diagnostics.py` | VIF, BP/White, RESET, JB, DW, influence and robustness tables, figures 6–8 |
 
+To rebuild the PDF report (`report/MP2_Report.pdf`) from `report/report.md`, which needs
+pandoc and a LaTeX install with pdflatex:
+
+```bash
+uv run python src/build_report.py
+```
+
 Each table is written twice to `output/tables/`: as Markdown (`.md`) and as CSV.
 Headline numbers go to `output/values.json`.
 
@@ -271,28 +278,22 @@ Each figure answers a specific modelling question; none is decorative.
 | 3 | `fig3_gender_marriage.png` | Mean salary by gender × marital status, with 95% CIs | Married men earn 7.99/hr against 5.19 for single men; women earn about 4.6 whether married or not → **female × married interaction** |
 | 4 | `fig4_correlations.png` | Correlation heatmap of the numeric variables | exper–ten r = 0.51, edu–exper r = −0.25, momed–daded r = 0.39 → **check multicollinearity (VIF)**. Background variables are almost uncorrelated with salary |
 | 5 | `fig5_it_group.png` | Salary boxplots by IT work group | Pay differs clearly by group → include the IT group and division as **controls** |
-| 6 | `fig6_residual_diagnostics.png` | Residuals vs fitted, Q–Q, scale–location, leverage | Checks the model assumptions (§9) |
+| 6 | `fig6_residual_diagnostics.png` | Residuals vs fitted, Q–Q, scale–location, Cook's distance bar plot with the 4/n threshold | Checks the model assumptions (§9), in the four plots the course uses |
 | 7 | `fig7_level_vs_log.png` | Residual spread for the level vs log models | Visual evidence that the log model removes heteroskedasticity |
 | 8 | `fig8_predicted_profiles.png` | Predicted salary vs experience for the four gender × marriage groups (M7) | Shows the quadratic and interaction findings together |
 
-**Descriptive statistics** (`output/tables/descriptives.md`):
+**Descriptive statistics.** The course requires a descriptive statistics table in the
+Results section of a formal report, with mean, median, mode, variance, SD, min, max, range,
+skewness, kurtosis and quantiles, plus the correlations of the IVs. Both are produced by
+`02_eda.py` and appear as Tables 7 and 8 of the report:
 
-| Variable | N | Mean | SD | Min | Median | Max |
-|:--|--:|--:|--:|--:|--:|--:|
-| Hourly salary | 515 | 5.93 | 3.72 | 0.53 | 4.65 | 24.98 |
-| log(salary) | 515 | 1.63 | 0.54 | −0.63 | 1.54 | 3.22 |
-| Education (yrs), after R7 | 521 | 12.71 | 2.49 | 6 | 12 | 18 |
-| Experience (yrs), after R6 | 524 | 17.12 | 13.56 | 1 | 13.5 | 51 |
-| Tenure (yrs) | 526 | 5.10 | 7.22 | 0 | 2 | 44 |
-| Dependents | 526 | 1.04 | 1.26 | 0 | 1 | 6 |
-| Mother's education | 521 | 9.93 | 3.22 | 4 | 10 | 15 |
-| Father's education | 523 | 14.47 | 3.65 | 8 | 15 | 19 |
-| Siblings | 521 | 1.57 | 1.18 | 0 | 2 | 5 |
-| Female | 526 | 0.48 | | | | |
-| Married | 526 | 0.61 | | | | |
-| Non-privileged | 526 | 0.10 | | | | |
-| Metro area | 524 | 0.72 | | | | |
-| Works from home | 526 | 0.14 | | | | |
+- `output/tables/descriptives.md`: every statistic above for all 25 variables (kurtosis
+  is excess kurtosis; Q1 and Q3 are the quartiles).
+- `output/tables/iv_correlations.md`: lower-triangle correlations of 13 IVs (the study
+  variables, main controls and family background).
+- `output/tables/iv_correlations_full.csv`: the full correlation matrix of all IVs.
+
+The largest IV correlations are experience–tenure (0.51) and education–R&D (0.51).
 
 ---
 
@@ -385,6 +386,24 @@ their fit statistics compare directly.
 | Coefficient path | Female only → M1 → M2 → + family & location → M3 | How study-IV coefficients change as controls enter |
 | Job sorting | Linear probability models: in group or division g ~ female + edu + exper + ten | Do women or the more educated land in better- or worse-paid groups? |
 
+**Performance on unseen data** (`output/tables/validation.md`). As the course requires,
+each model is also judged on data it was not fitted to. Each model is fitted on a random
+80% of employees and its MSE of log salary measured on the 20% held out (seed 2026); 10-fold
+cross-validation confirms the ranking.
+
+| Model | Training MSE | Held-out MSE | 10-fold CV MSE |
+|---|--:|--:|--:|
+| M1 | 0.196 | 0.203 | 0.201 |
+| M2 | 0.173 | 0.188 | 0.181 |
+| M3 | 0.136 | 0.147 | 0.151 |
+| M4 | 0.127 | 0.128 | 0.142 |
+| M5 | 0.121 | 0.122 | 0.138 |
+| M6 | 0.124 | 0.126 | 0.139 |
+| **M7** | 0.123 | **0.118** | **0.137** |
+
+M7 has the lowest error on both out-of-sample measures, so its extra terms improve
+prediction rather than only fitting the sample.
+
 **How M7 was selected.**
 
 1. Over M4, the 7 candidate interactions are jointly significant (F = 3.57, df = 7, p < 0.001).
@@ -392,6 +411,7 @@ their fit statistics compare directly.
 3. Dropping the other four is not rejected (F = 0.88, df = 4, p = 0.475).
 4. M7 has the lowest AIC of all the models (405.5).
 5. M7 is the only model that passes the RESET specification test at 5% (§9.2).
+6. M7 has the lowest held-out and cross-validated MSE.
 
 ---
 
@@ -402,12 +422,14 @@ All tests are on the preferred model M7 unless stated (`output/tables/diagnostic
 | Statistic | M3 (log, linear) | M7 salary in **levels** | **M7 log(salary)** |
 |:--|--:|--:|--:|
 | Breusch–Pagan LM (p) | 31.98 (0.044) | 70.04 (<0.001) | **34.10 (0.132)** |
+| White, full form LM (df, p) | 185.9 (191, 0.591) | 287.5 (319, 0.897) | 323.8 (319, 0.415) |
 | White, special form LM (p) | 0.55 (0.759) | 60.94 (<0.001) | **2.31 (0.316)** |
 | RESET F, ŷ² + ŷ³ (p) | 5.45 (0.005) | 20.91 (<0.001) | **2.47 (0.086)** |
 | Jarque–Bera (p) | 33.2 (<0.001) | 682.2 (<0.001) | 73.2 (<0.001) |
 | Residual skewness | 0.14 | 1.47 | **−0.02** |
 | Residual kurtosis | 4.24 | 7.98 | 4.89 |
 | Durbin–Watson | 1.88 | 1.90 | **1.89** |
+| Breusch–Godfrey LM, lag 1 (p) | 1.75 (0.186) | 1.31 (0.252) | **1.53 (0.216)** |
 
 ### 9.1 Linearity in parameters
 
@@ -426,16 +448,22 @@ three quadratic terms are jointly significant (χ² = 30.87, df = 3, p < 0.001).
 
 ### 9.3 Homoskedasticity
 
-| Model | Breusch–Pagan | White (special form) |
-|---|---|---|
-| Level-salary model | p < 0.001 | p < 0.001 |
-| **M7 (log)** | **p = 0.132** | **p = 0.316** |
+| Model | Breusch–Pagan | White (full) | White (special form) |
+|---|---|---|---|
+| Level-salary model | p < 0.001 | p = 0.897 | p < 0.001 |
+| **M7 (log)** | **p = 0.132** | **p = 0.415** | **p = 0.316** |
 
 - The level model is clearly heteroskedastic, and Figure 7 shows the fan shape.
 - The log transformation removes it.
-- The White test uses the special form (regress e² on ŷ and ŷ²; Wooldridge). The full
-  White test is not identified here, because the squares of the many dummy variables
-  duplicate the dummies themselves.
+- The **full White test**, as taught in the course (`het_white` on all regressors), regresses
+  e² on every regressor, square and cross-product. Here many of those columns are duplicates
+  (a 0/1 variable squared is itself) or always zero (two categories that cannot occur
+  together), so `het_white` would overcount the degrees of freedom. `white_full()` in
+  `04_diagnostics.py` drops them and uses the rank of what remains (319 terms for M7).
+- With 319 terms the full test has little power, the weakness the course notes for models
+  with many IVs: it does not reject even for salary in levels (p = 0.897), which
+  Breusch–Pagan clearly rejects. We therefore also report the **special form** (regress e²
+  on ŷ and ŷ²; Wooldridge), which rejects for levels and passes for log salary.
 - As a safeguard, **all inference uses HC3 robust SEs**. Robust SEs differ from classical
   SEs by only −2% to +18% (`se_comparison.md`), and no conclusion changes.
 
@@ -447,12 +475,14 @@ three quadratic terms are jointly significant (χ² = 30.87, df = 3, p < 0.001).
 | M7, raw variables | 59.2 (education and its square) |
 | **M7, mean-centred edu / exper / ten** | **5.84** (all below 10) |
 
-- In the linear model M3 the largest VIF is 2.63, so there is no collinearity problem.
+- In the linear model M3 the largest VIF is 2.63, below both the course's thresholds (5 and 10).
 - In M7 the raw VIFs of education and its square reach about 59. This is **structural**
   collinearity between a variable and its own square or interaction, not a data problem.
 - **How it is handled:** education, experience and tenure are re-estimated mean-centred.
   Centring leaves every fitted value and every test unchanged (asserted in code). It only
   changes the parameterisation, and it brings every VIF below 10.
+- Tenure stays at 5.84 after centring, above the stricter guide of 5, because it also
+  enters through tenure² and female × tenure. It is therefore tested jointly with those terms.
 - Joint tests of each variable with its square are used for inference on the study IVs.
 - The condition number falls from 16,001 to 2,384. The dummy-variable sets cause no
   trap, because each set has a reference group.
@@ -468,12 +498,15 @@ three quadratic terms are jointly significant (χ² = 30.87, df = 3, p < 0.001).
 ### 9.6 Independence, exogeneity, influence and robustness
 
 - **Independence.** The data are a cross-section of employees. The Durbin–Watson
-  statistic of 1.89, with rows ordered by id, shows no serial dependence.
+  statistic is 1.89, with rows ordered by id. Python's Durbin–Watson gives no p-value, so
+  the Breusch–Godfrey test for first-order autocorrelation supplies one: p = 0.216, no
+  autocorrelation.
 - **Zero conditional mean.** We control for every observed determinant of pay. Unobserved
   ability and performance are not in the data, so the coefficients describe conditional
   associations and should not be read as strict causal effects (§12).
-- **Influential observations.** 31 employees have Cook's D > 4/n = 0.008; the largest
-  is 0.062, far below 1.
+- **Influential observations.** The Cook's distance bar plot (Figure 6, bottom right) marks
+  the 31 employees with D > 4/n = 0.008 in red; the largest is 0.062 (employee 128), far
+  below 1.
 - **Robustness of M7** (`output/tables/robustness.md`). Every headline result keeps its
   sign and significance in all five alternatives below:
 
@@ -706,7 +739,7 @@ small part of the gender gap.
 | A3: M7 + background | χ² = 0.63, p = 0.889 | No direct effect on salary |
 | A3 vs A4: change in the education coefficient | −0.0003 | No omitted-variable bias from excluding background |
 
-Family background has neither a direct nor an indirect effect, so it is correctly
+We find no evidence that family background has a direct or an indirect effect, so it is
 excluded from the main model.
 
 ### 10.7 Hypothesis verdicts
@@ -717,12 +750,12 @@ excluded from the main model.
 | H2 | Experience +, diminishing | **Supported** | exper > 0, exper² < 0 (both p < 0.001); peak at about 26 yrs |
 | H3 | Tenure +, diminishing | **Partly supported** | ten > 0 (p < 0.001), joint p < 0.001; ten² not significant (p = 0.105), so no clear diminishing returns |
 | H4 | Women earn less | **Supported** | All female terms jointly p < 0.001; gap 10–35% depending on marriage and tenure |
-| H5 | Non-privileged earn less | **Not supported** | β ≈ 0, p = 0.887 in M7; insignificant in every model |
+| H5 | Non-privileged earn less | **No evidence** | β ≈ 0, p = 0.887 in M7; insignificant in every model (inconclusive, not proof of equal pay) |
 | H6 | Gap larger for married (marriage premium for men only) | **Supported** | female × married = −0.196 (p = 0.011); men +26% → +11%; women ≈ 0 |
 | H7 | Returns to human capital differ by gender | **Partly supported** | Tenure: yes (female × ten = −0.0125, p = 0.027). Education and experience: no |
 | H8 | Marriage premium changes with experience | **Supported** | married × exper = −0.0066 (p = 0.021); premium fades over the career |
 | H9 | Education × experience complementarity | **Not supported** | Insignificant in M5 |
-| H10 | Background acts only through education | **Not supported in either direction** | No direct and no indirect effect (A1–A3: all p > 0.5) |
+| H10 | Background acts only through education | **No evidence in either direction** | No significant direct or indirect effect (A1–A3: all p > 0.5) |
 | H11 | Education and gender work partly through job allocation | **Supported for education; weak for gender** | Education coefficient −39% once job controls enter; gender coefficient moves only −0.30 → −0.26 |
 
 ---
@@ -761,10 +794,11 @@ Each recommendation rests on a specific finding above.
    about 26 years (about 20 for married staff, §10.2). Senior career tracks and
    performance-linked pay can keep late-career employees motivated.
 
-7. **No action needed on regional pay or non-privileged status.** Regions show no pay
-   differences beyond the metro premium (p = 0.29), and non-privileged status has no
-   effect (p = 0.89). The metro premium (+14.5%) is consistent with cost-of-living
-   differences.
+7. **No basis for adjusting pay by region or non-privileged status.** We found no evidence
+   of a pay difference by region beyond the metro premium (p = 0.29) or by non-privileged
+   status (p = 0.89). A non-significant result is inconclusive, not proof of equal pay, but
+   it gives no grounds for an adjustment. The metro premium (+14.5%) is consistent with
+   cost-of-living differences.
 
 8. **Monitor remote work.** Working from home carries a −10% effect, but the evidence
    is weak (p = 0.064). Track it rather than act on it now.
@@ -825,7 +859,8 @@ Each recommendation rests on a specific finding above.
 | File (`output/tables/`) | Contents | README section |
 |---|---|---|
 | `cleaning_log`, `cleaning_by_rule`, `missingness`, `dummy_sets`, `imputation_log` | Data processing | §4 |
-| `descriptives` | Summary statistics | §5 |
+| `descriptives`, `iv_correlations`, `iv_correlations_full.csv` | Descriptive statistics and IV correlations | §5 |
+| `validation` | Training, held-out and cross-validated MSE | §8 |
 | `models_ladder`, `sig_M3`, `sig_preferred` | Coefficient and significance tables | §10.1, §10.4 |
 | `nested_tests`, `joint_tests` | F-tests and robust Wald tests | §10.1 |
 | `quadratic_effects`, `interaction_effects` | Marginal and conditional effects | §10.2–10.3 |
